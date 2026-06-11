@@ -14,10 +14,10 @@
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, onAuthStateChanged, updateProfile }
+         signOut, onAuthStateChanged, updateProfile, sendPasswordResetEmail }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc,
-         updateDoc, query, where, serverTimestamp }
+         updateDoc, deleteDoc, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
@@ -57,9 +57,9 @@ window._fb = {
   auth, db, COACH_EMAIL,
   serverTimestamp,
   fns: { signInWithEmailAndPassword, createUserWithEmailAndPassword,
-         signOut, updateProfile,
+         signOut, updateProfile, sendPasswordResetEmail,
          collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
-         query, where }
+         query, where, deleteDoc }
 };
 
 onAuthStateChanged(auth, user => {
@@ -313,9 +313,22 @@ body{font-family:var(--font-b);background:var(--gray-50);color:var(--gray-800);m
     </div>
     <div id="authSignIn">
       <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="loginEmail" type="email" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doSignIn()"></div>
-      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()"></div>
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label class="form-label" style="margin-bottom:0;">Password</label>
+          <span style="font-size:12px;color:var(--green-mid);cursor:pointer;font-weight:500;" onclick="showForgotPassword()">Forgot password?</span>
+        </div>
+        <input class="form-input" id="loginPassword" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()">
+      </div>
       <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="doSignIn()">Sign In →</button>
       <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-top:14px;">Coach email: <strong id="coachHint"></strong></div>
+    </div>
+    <!-- Forgot password panel (hidden by default) -->
+    <div id="authForgot" style="display:none;">
+      <div style="font-size:13px;color:var(--gray-600);margin-bottom:16px;">Enter your email and we'll send you a link to reset your password.</div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="forgotEmail" type="email" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="doForgotPassword()">Send Reset Link →</button>
+      <div style="text-align:center;margin-top:14px;"><span style="font-size:12px;color:var(--green-mid);cursor:pointer;font-weight:500;" onclick="showSignIn()">← Back to Sign In</span></div>
     </div>
     <div id="authSignUp" style="display:none;">
       <div class="form-group"><label class="form-label">Full name</label><input class="form-input" id="signupName" type="text" placeholder="Jane Smith"></div>
@@ -522,6 +535,38 @@ body{font-family:var(--font-b);background:var(--gray-50);color:var(--gray-800);m
     <div style="display:flex;gap:10px;">
       <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="addClient()">Add Client</button>
       <button class="btn btn-secondary" onclick="closeModal('addClientModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CLIENT MODAL -->
+<div class="modal-overlay" id="editClientModal">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">Edit Client</div><button class="modal-close" onclick="closeModal('editClientModal')">✕</button></div>
+    <input type="hidden" id="editClientId">
+    <div class="form-group"><label class="form-label">Full name</label><input class="form-input" id="editClientName" type="text"></div>
+    <div class="form-group"><label class="form-label">Fitness goal</label><input class="form-input" id="editClientGoal" type="text" placeholder="e.g. Weight loss, Muscle gain"></div>
+    <div class="form-group"><label class="form-label">Starting weight (kg)</label><input class="form-input" id="editClientStartWeight" type="number"></div>
+    <div class="form-group"><label class="form-label">Target weight (kg)</label><input class="form-input" id="editClientTargetWeight" type="number"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveEditClient()">Save Changes</button>
+      <button class="btn btn-secondary" onclick="closeModal('editClientModal')">Cancel</button>
+    </div>
+    <div style="border-top:1px solid var(--gray-100);margin-top:20px;padding-top:16px;">
+      <div style="font-size:12px;color:var(--gray-600);margin-bottom:10px;font-weight:600;">Danger Zone</div>
+      <button class="btn" style="background:var(--coral-light);color:var(--coral);border:1px solid #f0997b;width:100%;justify-content:center;" onclick="confirmDeleteClient()">🗑 Delete Client & All Their Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="deleteConfirmModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-hdr"><div class="modal-title">Delete Client?</div><button class="modal-close" onclick="closeModal('deleteConfirmModal')">✕</button></div>
+    <div style="font-size:14px;color:var(--gray-600);margin-bottom:20px;line-height:1.6;">This will permanently delete <strong id="deleteClientName"></strong> and all their updates. This cannot be undone.</div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn" style="background:var(--coral);color:#fff;flex:1;justify-content:center;" onclick="doDeleteClient()">Yes, Delete</button>
+      <button class="btn btn-secondary" style="flex:1;justify-content:center;" onclick="closeModal('deleteConfirmModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -826,6 +871,10 @@ async function renderAllClients(){
         ${sum.avgSteps?`<div class="mini-m"><div class="mini-m-label">Avg Steps</div><div class="mini-m-value">${(sum.avgSteps/1000).toFixed(1)}k</div></div>`:''}
       </div>
       ${(c.badges||[]).slice(0,3).map(bid=>{const b=BADGE_DEFS.find(x=>x.id===bid);return b?`<span class="badge-chip" style="background:${b.color};color:${b.text};border-color:${b.text}40;">${b.emoji} ${b.name}</span>`:''}).join('')}
+      <div style="display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100);" onclick="event.stopPropagation()">
+        <button class="btn btn-outline btn-sm" style="flex:1;justify-content:center;" onclick="openEditClientModal('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-sm" style="background:var(--coral-light);color:var(--coral);border:1px solid #f0997b;flex:1;justify-content:center;" onclick="openDeleteConfirm('${c.id}','${c.name}')">🗑 Delete</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1054,6 +1103,34 @@ async function renderMyBadges(){
 }
 
 // ═══════════════════════════════════════════════════════
+//  FORGOT PASSWORD
+// ═══════════════════════════════════════════════════════
+function showForgotPassword(){
+  document.getElementById('authSignIn').style.display='none';
+  document.getElementById('authForgot').style.display='block';
+  document.getElementById('authSignUp').style.display='none';
+  document.getElementById('tabSignIn').classList.remove('active');
+  document.getElementById('tabSignUp').classList.remove('active');
+  const email=document.getElementById('loginEmail').value;
+  if(email) document.getElementById('forgotEmail').value=email;
+}
+function showSignIn(){
+  document.getElementById('authForgot').style.display='none';
+  document.getElementById('authSignIn').style.display='block';
+  document.getElementById('tabSignIn').classList.add('active');
+  document.getElementById('tabSignUp').classList.remove('active');
+}
+async function doForgotPassword(){
+  const email=document.getElementById('forgotEmail').value.trim();
+  if(!email){showToast('Please enter your email','error');return;}
+  try{
+    await F().sendPasswordResetEmail(fb().auth,email);
+    showToast('Reset link sent! Check your inbox 📧','success');
+    setTimeout(()=>showSignIn(),2000);
+  } catch(e){showToast(authErr(e.code),'error');}
+}
+
+// ═══════════════════════════════════════════════════════
 //  ADD CLIENT
 // ═══════════════════════════════════════════════════════
 function openAddClientModal(){['newClientName','newClientEmail','newClientGoal','newClientStartWeight','newClientTargetWeight'].forEach(id=>document.getElementById(id).value='');openModal('addClientModal');}
@@ -1065,6 +1142,62 @@ async function addClient(){
   await fsSet('clients',id,{id,name,email,goal:document.getElementById('newClientGoal').value.trim(),startWeight:parseFloat(document.getElementById('newClientStartWeight').value)||null,targetWeight:parseFloat(document.getElementById('newClientTargetWeight').value)||null,joinDate:new Date().toISOString(),badges:[],uid:null});
   closeModal('addClientModal');
   showToast(`${name} added! Share the app link with them.`,'success');
+  await renderSidebarClients();renderAllClients();renderCoachDashboard();
+}
+
+// ═══════════════════════════════════════════════════════
+//  EDIT CLIENT
+// ═══════════════════════════════════════════════════════
+async function openEditClientModal(clientId){
+  const client=await fsGet('clients',clientId);
+  if(!client)return;
+  document.getElementById('editClientId').value=clientId;
+  document.getElementById('editClientName').value=client.name||'';
+  document.getElementById('editClientGoal').value=client.goal||'';
+  document.getElementById('editClientStartWeight').value=client.startWeight||'';
+  document.getElementById('editClientTargetWeight').value=client.targetWeight||'';
+  openModal('editClientModal');
+}
+async function saveEditClient(){
+  const id=document.getElementById('editClientId').value;
+  const name=document.getElementById('editClientName').value.trim();
+  if(!name){showToast('Name cannot be empty','error');return;}
+  await fsSet('clients',id,{
+    name,
+    goal:document.getElementById('editClientGoal').value.trim(),
+    startWeight:parseFloat(document.getElementById('editClientStartWeight').value)||null,
+    targetWeight:parseFloat(document.getElementById('editClientTargetWeight').value)||null,
+  });
+  closeModal('editClientModal');
+  showToast('Client updated ✓','success');
+  await renderSidebarClients();renderAllClients();renderCoachDashboard();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DELETE CLIENT
+// ═══════════════════════════════════════════════════════
+function confirmDeleteClient(){
+  const id=document.getElementById('editClientId').value;
+  const name=document.getElementById('editClientName').value;
+  closeModal('editClientModal');
+  openDeleteConfirm(id,name);
+}
+function openDeleteConfirm(id,name){
+  document.getElementById('deleteClientName').textContent=name;
+  document.getElementById('deleteConfirmModal').dataset.clientId=id;
+  openModal('deleteConfirmModal');
+}
+async function doDeleteClient(){
+  const id=document.getElementById('deleteConfirmModal').dataset.clientId;
+  // Delete all updates for this client
+  const updates=await fsQueryClient(id);
+  for(const u of updates){
+    await F().deleteDoc(F().doc(fb().db,'updates',u.id));
+  }
+  // Delete the client document
+  await F().deleteDoc(F().doc(fb().db,'clients',id));
+  closeModal('deleteConfirmModal');
+  showToast('Client deleted','success');
   await renderSidebarClients();renderAllClients();renderCoachDashboard();
 }
 
