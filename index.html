@@ -1100,7 +1100,7 @@ async function renderClientHome(){
   else if(sum.streak>=3) motiveLine=`⚡ ${sum.streak} days strong — keep it going!`;
   else if(todayUpdates===0) motiveLine="Let's make today count 💪";
   else if(todayUpdates>=3) motiveLine='Great work logging today! 🌟';
-  else motiveLine='Keep logging — you're doing great!';
+  else motiveLine="Keep logging — you're doing great!";
   document.getElementById('welcomeCard').innerHTML=`
     <div style="background:linear-gradient(135deg,#7F1D1D 0%,#B91C1C 50%,#78350F 100%);border-radius:var(--r-xl);padding:24px 28px;color:#fff;position:relative;overflow:hidden;">
       <div style="position:absolute;top:-20px;right:-20px;font-size:100px;opacity:.08;pointer-events:none;">🔥</div>
@@ -1389,7 +1389,7 @@ async function initCoachChat(){
     const conv = convMap[c.id]||{};
     const unread = conv.unread_coach;
     if(unread) totalUnread++;
-    return `<div class="chat-client-item" id="chatItem_${c.id}" onclick="openCoachChatWith('${c.id}','${c.name.replace(/'/g,"\'")}')">
+    return `<div class="chat-client-item" id="chatItem_${c.id}" onclick="openCoachChatWith('${c.id}')">
       <div class="av-sm" style="background:${ac.bg};color:${ac.text};">${initials(c.name)}</div>
       <div class="chat-client-info">
         <div class="chat-client-name">${c.name}</div>
@@ -1405,7 +1405,9 @@ async function initCoachChat(){
   badge.style.display = totalUnread>0?'inline':'none';
 }
 
-async function openCoachChatWith(clientId, clientName){
+async function openCoachChatWith(clientId){
+  const clientDoc = await fsGet("clients", clientId);
+  const clientName = clientDoc ? clientDoc.name : "Client";
   _activeChatClientId = clientId;
   // Mark active in sidebar
   document.querySelectorAll('.chat-client-item').forEach(el=>el.classList.remove('active'));
@@ -1495,8 +1497,7 @@ function renderMessages(msgs, viewerRole){
 }
 
 function escapeHtml(t){
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/
-/g,'<br>');
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
 }
 
 // Auto-resize textarea
